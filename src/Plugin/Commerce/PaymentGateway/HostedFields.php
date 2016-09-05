@@ -252,6 +252,11 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
     }
     // If not specified, refund the entire amount.
     $amount = $amount ?: $payment->getAmount();
+    // Validate the requested amount.
+    $balance = $payment->getBalance();
+    if ($amount->greaterThan($balance)) {
+      throw new InvalidRequestException(sprintf("Can't refund more than %s.", $balance->__toString()));
+    }
 
     try {
       $remote_id = $payment->getRemoteId();
@@ -263,13 +268,16 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
       ErrorHelper::handleException($e);
     }
 
-    if ($amount->getDecimalAmount() < $payment->getAmount()->getDecimalAmount()) {
+    $old_refunded_amount = $payment->getRefundedAmount();
+    $new_refunded_amount = $old_refunded_amount->add($amount);
+    if ($new_refunded_amount->lessThan($payment->getAmount())) {
       $payment->state = 'capture_partially_refunded';
     }
     else {
       $payment->state = 'capture_refunded';
     }
-    $payment->setRefundedAmount($amount);
+
+    $payment->setRefundedAmount($new_refunded_amount);
     $payment->save();
   }
 
