@@ -166,7 +166,7 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
       'channel' => 'CommerceGuys_BT_Vzero',
       'merchantAccountId' => $this->configuration['merchant_account_id'][$currency_code],
       'orderId' => $payment->getOrderId(),
-      'amount' => $amount->getDecimalAmount(),
+      'amount' => $amount->getNumber(),
       'options' => [
         'submitForSettlement' => $capture,
       ],
@@ -208,7 +208,7 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
 
     try {
       $remote_id = $payment->getRemoteId();
-      $decimal_amount = $amount->getDecimalAmount();
+      $decimal_amount = $amount->getNumber();
       $result = $this->api->transaction()->submitForSettlement($remote_id, $decimal_amount);
       ErrorHelper::handleErrors($result);
     }
@@ -260,7 +260,7 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
 
     try {
       $remote_id = $payment->getRemoteId();
-      $decimal_amount = $amount->getDecimalAmount();
+      $decimal_amount = $amount->getNumber();
       $result = $this->api->transaction()->refund($remote_id, $decimal_amount);
       ErrorHelper::handleErrors($result);
     }
@@ -350,13 +350,11 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
     }
     $billing_address_data = [
       'billingAddress' => [
-        // @todo Fix once address gets separate first name / last name getters.
-        'firstName' => $address->getRecipient(),
-        'lastName' => '',
+        'firstName' => $address->getGivenName(),
+        'lastName' => $address->getFamilyName(),
         'company' => $address->getOrganization(),
         'streetAddress' => $address->getAddressLine1(),
         'extendedAddress' => $address->getAddressLine2(),
-        // @todo Use locality  / administrative area codes where available.
         'locality' => $address->getLocality(),
         'region' => $address->getAdministrativeArea(),
         'postalCode' => $address->getPostalCode(),
@@ -364,7 +362,7 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
       ],
     ];
     $payment_method_data = [
-      'cardholderName' => $address->getRecipient(),
+      'cardholderName' => $address->getGivenName() . ' ' . $address->getFamilyName(),
       'paymentMethodNonce' => $payment_details['payment_method_nonce'],
       'options' => [
         'verifyCard' => TRUE,
