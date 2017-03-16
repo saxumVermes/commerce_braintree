@@ -25,6 +25,7 @@ use Drupal\Core\Form\FormStateInterface;
  *   forms = {
  *     "add-payment-method" = "Drupal\commerce_braintree\PluginForm\HostedFields\PaymentMethodAddForm",
  *   },
+ *   js_library = "commerce_braintree/braintree",
  *   payment_method_types = {"credit_card"},
  *   credit_card_types = {
  *     "amex", "dinersclub", "discover", "jcb", "maestro", "mastercard", "visa",
