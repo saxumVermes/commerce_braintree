@@ -96,7 +96,7 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
     $form['merchant_account_id'] = [
       '#type' => 'fieldset',
       '#title' => $this->t('Merchant account ID'),
-      '#description' => $this->t('To find your Merchant account ID: log into the Braintree Control Panel; navigate to Settings > Processing > Merchant Accounts. a href="@url" target="_blank">Read more</a>.',
+      '#description' => $this->t('To find your Merchant account ID: log into the Braintree Control Panel; navigate to Settings > Processing > Merchant Accounts. <a href="@url" target="_blank">Read more</a>.',
         ['@url' => 'https://articles.braintreepayments.com/control-panel/important-gateway-credentials#merchant-account-id']),
       '#collapsible' => TRUE,
       '#collapsed' => FALSE,
