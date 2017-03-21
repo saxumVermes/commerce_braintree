@@ -93,9 +93,9 @@ class ErrorHelper {
       $error = $result->verification;
       $status = $result->verification->status;
     }
-    elseif ($result->transaction && in_array($result->verification->status, $error_statuses)) {
-      $error = $result->verification;
-      $status = $result->verification->status;
+    elseif ($result->transaction && in_array($result->transaction->status, $error_statuses)) {
+      $error = $result->transaction;
+      $status = $result->transaction->status;
     }
 
     if ($status == 'settlement_declined') {
