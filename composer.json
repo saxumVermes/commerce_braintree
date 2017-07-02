@@ -6,6 +6,6 @@
     "license": "GPL-2.0+",
     "require": {
         "drupal/commerce": "~2.0",
-        "braintree/braintree_php" : "~3.11"
+        "braintree/braintree_php" : "~3.23"
     }
 }
