@@ -345,7 +345,7 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
     // https://developers.braintreepayments.com/reference/request/customer/create/php#blank-customer
     $customer_id = NULL;
     $customer_data = [];
-    if ($owner) {
+    if ($owner && $owner->isAuthenticated()) {
       $customer_id = $owner->commerce_remote_id->getByProvider('commerce_braintree');
       $customer_data['email'] = $owner->getEmail();
     }
@@ -398,7 +398,8 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
         ErrorHelper::handleException($e);
       }
       $remote_payment_method = $result->customer->paymentMethods[0];
-      if ($owner) {
+
+      if ($owner && $owner->isAuthenticated()) {
         $customer_id = $result->customer->id;
         $owner->commerce_remote_id->setByProvider('commerce_braintree', $customer_id);
         $owner->save();
