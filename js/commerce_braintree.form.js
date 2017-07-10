@@ -20,12 +20,19 @@
   Drupal.behaviors.commerceBraintreeForm = {
     attach: function (context) {
       var $form = $('.braintree-form', context).closest('form');
-      if ($form.length > 0) {
-        var braintree = $form.data('braintree');
-        if (!braintree) {
-          braintree = new Drupal.commerceBraintree($form, drupalSettings.commerceBraintree);
-          $form.data('braintree', braintree);
-        }
+      if ($form.length === 0) {
+        return;
+      }
+
+      var commerceBraintree = $form.data('braintree');
+      if (!commerceBraintree) {
+        var waitForSdk = setInterval(function () {
+          if (typeof braintree !== 'undefined') {
+            commerceBraintree = new Drupal.commerceBraintree($form, drupalSettings.commerceBraintree);
+            $form.data('braintree', commerceBraintree);
+            clearInterval(waitForSdk);
+          }
+        }, 100);
       }
     },
     detach: function (context, settings, trigger) {
@@ -34,14 +41,15 @@
       if (trigger !== 'unload') {
         return;
       }
-
       var $form = $('.braintree-form', context).closest('form');
-      if ($form.length > 0) {
-        var braintree = $form.data('braintree');
-        if (braintree) {
-          braintree.integration.teardown();
-          $form.removeData('braintree');
-        }
+      if ($form.length === 0) {
+        return;
+      }
+
+      var commerceBraintree = $form.data('braintree');
+      if (commerceBraintree) {
+        commerceBraintree.integration.teardown();
+        $form.removeData('braintree');
       }
     }
   };
