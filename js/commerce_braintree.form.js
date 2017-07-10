@@ -28,7 +28,13 @@
         }
       }
     },
-    detach: function (context) {
+    detach: function (context, settings, trigger) {
+      // Detaching on the wrong trigger will clear the Braintree form
+      // on #ajax (after changing the address country, for example).
+      if (trigger !== 'unload') {
+        return;
+      }
+
       var $form = $('.braintree-form', context).closest('form');
       if ($form.length > 0) {
         var braintree = $form.data('braintree');
