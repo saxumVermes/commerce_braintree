@@ -326,7 +326,7 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
     $customer_id = NULL;
     $customer_data = [];
     if ($owner && $owner->isAuthenticated()) {
-      $customer_id = $owner->commerce_remote_id->getByProvider('commerce_braintree');
+      $customer_id = $this->getRemoteCustomerId($owner);
       $customer_data['email'] = $owner->getEmail();
     }
     $billing_address_data = [
@@ -380,8 +380,7 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
       $remote_payment_method = $result->customer->paymentMethods[0];
 
       if ($owner && $owner->isAuthenticated()) {
-        $customer_id = $result->customer->id;
-        $owner->commerce_remote_id->setByProvider('commerce_braintree', $customer_id);
+        $this->setRemoteCustomerId($owner, $result->customer->id);
         $owner->save();
       }
     }
