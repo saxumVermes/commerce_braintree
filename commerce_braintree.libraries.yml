@@ -17,6 +17,7 @@ form:
   js:
     js/commerce_braintree.form.js: {}
   dependencies:
+    - classy/messages
     - core/jquery
     - core/drupal
     - core/jquery.once
