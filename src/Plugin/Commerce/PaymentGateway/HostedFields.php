@@ -12,6 +12,7 @@ use Drupal\commerce_payment\PaymentMethodTypeManager;
 use Drupal\commerce_payment\PaymentTypeManager;
 use Drupal\commerce_payment\Plugin\Commerce\PaymentGateway\OnsitePaymentGatewayBase;
 use Drupal\commerce_price\Price;
+use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 
@@ -44,8 +45,8 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
   /**
    * {@inheritdoc}
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityTypeManagerInterface $entity_type_manager, PaymentTypeManager $payment_type_manager, PaymentMethodTypeManager $payment_method_type_manager) {
-    parent::__construct($configuration, $plugin_id, $plugin_definition, $entity_type_manager, $payment_type_manager, $payment_method_type_manager);
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityTypeManagerInterface $entity_type_manager, PaymentTypeManager $payment_type_manager, PaymentMethodTypeManager $payment_method_type_manager, TimeInterface $time) {
+    parent::__construct($configuration, $plugin_id, $plugin_definition, $entity_type_manager, $payment_type_manager, $payment_method_type_manager, $time);
 
     $this->api = new \Braintree\Gateway([
       'environment' => ($this->getMode() == 'test') ? 'sandbox' : 'production',
@@ -147,16 +148,9 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
    * {@inheritdoc}
    */
   public function createPayment(PaymentInterface $payment, $capture = TRUE) {
-    if ($payment->getState()->value != 'new') {
-      throw new \InvalidArgumentException('The provided payment is in an invalid state.');
-    }
+    $this->assertPaymentState($payment, ['new']);
     $payment_method = $payment->getPaymentMethod();
-    if (empty($payment_method)) {
-      throw new \InvalidArgumentException('The provided payment has no payment method referenced.');
-    }
-    if (REQUEST_TIME >= $payment_method->getExpiresTime()) {
-      throw new HardDeclineException('The provided payment method has expired');
-    }
+    $this->assertPaymentMethod($payment_method);
     $amount = $payment->getAmount();
     $currency_code = $payment->getAmount()->getCurrencyCode();
     if (empty($this->configuration['merchant_account_id'][$currency_code])) {
@@ -187,13 +181,10 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
       ErrorHelper::handleException($e);
     }
 
-    $payment->state = $capture ? 'capture_completed' : 'authorization';
+    $next_state = $capture ? 'completed' : 'authorization';
+    $payment->setState($next_state);
     $payment->setRemoteId($result->transaction->id);
-    $payment->setAuthorizedTime(REQUEST_TIME);
     // @todo Find out how long an authorization is valid, set its expiration.
-    if ($capture) {
-      $payment->setCapturedTime(REQUEST_TIME);
-    }
     $payment->save();
   }
 
@@ -201,9 +192,7 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
    * {@inheritdoc}
    */
   public function capturePayment(PaymentInterface $payment, Price $amount = NULL) {
-    if ($payment->getState()->value != 'authorization') {
-      throw new \InvalidArgumentException('Only payments in the "authorization" state can be captured.');
-    }
+    $this->assertPaymentState($payment, ['authorization']);
     // If not specified, capture the entire amount.
     $amount = $amount ?: $payment->getAmount();
 
@@ -217,9 +206,8 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
       ErrorHelper::handleException($e);
     }
 
-    $payment->state = 'capture_completed';
+    $payment->setState('completed');
     $payment->setAmount($amount);
-    $payment->setCapturedTime(REQUEST_TIME);
     $payment->save();
   }
 
@@ -227,9 +215,7 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
    * {@inheritdoc}
    */
   public function voidPayment(PaymentInterface $payment) {
-    if ($payment->getState()->value != 'authorization') {
-      throw new \InvalidArgumentException('Only payments in the "authorization" state can be voided.');
-    }
+    $this->assertPaymentState($payment, ['authorization']);
 
     try {
       $remote_id = $payment->getRemoteId();
@@ -240,7 +226,7 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
       ErrorHelper::handleException($e);
     }
 
-    $payment->state = 'authorization_voided';
+    $payment->setState('authorization_voided');
     $payment->save();
   }
 
@@ -248,16 +234,10 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
    * {@inheritdoc}
    */
   public function refundPayment(PaymentInterface $payment, Price $amount = NULL) {
-    if (!in_array($payment->getState()->value, ['capture_completed', 'capture_partially_refunded'])) {
-      throw new \InvalidArgumentException('Only payments in the "capture_completed" and "capture_partially_refunded" states can be refunded.');
-    }
+    $this->assertPaymentState($payment, ['completed', 'partially_refunded']);
     // If not specified, refund the entire amount.
     $amount = $amount ?: $payment->getAmount();
-    // Validate the requested amount.
-    $balance = $payment->getBalance();
-    if ($amount->greaterThan($balance)) {
-      throw new InvalidRequestException(sprintf("Can't refund more than %s.", $balance->__toString()));
-    }
+    $this->assertRefundAmount($payment, $amount);
 
     try {
       $remote_id = $payment->getRemoteId();
@@ -272,10 +252,10 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
     $old_refunded_amount = $payment->getRefundedAmount();
     $new_refunded_amount = $old_refunded_amount->add($amount);
     if ($new_refunded_amount->lessThan($payment->getAmount())) {
-      $payment->state = 'capture_partially_refunded';
+      $payment->setState('partially_refunded');
     }
     else {
-      $payment->state = 'capture_refunded';
+      $payment->setState('refunded');
     }
 
     $payment->setRefundedAmount($new_refunded_amount);
@@ -302,7 +282,7 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
       $remote_id = $payment_details['payment_method_nonce'];
       // Nonces expire after 3h. We reduce that time by 5s to account for the
       // time it took to do the server request after the JS tokenization.
-      $expires = REQUEST_TIME + (3600 * 3) - 5;
+      $expires = $this->time->getRequestTime() + (3600 * 3) - 5;
     }
     else {
       $remote_payment_method = $this->doCreatePaymentMethod($payment_method, $payment_details);
