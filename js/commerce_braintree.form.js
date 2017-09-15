@@ -47,6 +47,7 @@
       commerceBraintree.integration.teardown();
       $form.removeData('braintree');
       $form.removeOnce('braintree-attach');
+      $form.off('submit.braintreeSubmit');
     }
   };
 
@@ -71,7 +72,7 @@
         client: clientInstance,
         fields: settings.hostedFields
       }, function (hostedFieldsError, hostedFieldsInstance) {
-        that.hostedFieldsInstance = hostedFieldsInstance;
+        that.integration = hostedFieldsInstance;
         if (hostedFieldsError) {
           console.error(hostedFieldsError);
           return;
@@ -79,7 +80,7 @@
 
         $submit.prop('disabled', false);
 
-        $form.on('submit', function (event, options) {
+        $form.on('submit.braintreeSubmit', function (event, options) {
           options = options || {};
           if (options.tokenized) {
             // Tokenization complete, allow the form to submit.
