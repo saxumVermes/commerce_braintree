@@ -27,7 +27,7 @@ use Drupal\Core\Form\FormStateInterface;
  *     "add-payment-method" = "Drupal\commerce_braintree\PluginForm\HostedFields\PaymentMethodAddForm",
  *   },
  *   js_library = "commerce_braintree/braintree",
- *   payment_method_types = {"credit_card"},
+ *   payment_method_types = {"credit_card", "paypal"},
  *   credit_card_types = {
  *     "amex", "dinersclub", "discover", "jcb", "maestro", "mastercard", "visa",
  *   },
@@ -160,7 +160,8 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
     $transaction_data = [
       'channel' => 'CommerceGuys_BT_Vzero',
       'merchantAccountId' => $this->configuration['merchant_account_id'][$currency_code],
-      'orderId' => $payment->getOrderId(),
+      // orderId must be unique.
+      'orderId' => $payment->getOrderId() . '-' . $this->time->getCurrentTime(),
       'amount' => $amount->getNumber(),
       'options' => [
         'submitForSettlement' => $capture,
@@ -266,9 +267,17 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
    * {@inheritdoc}
    */
   public function createPaymentMethod(PaymentMethodInterface $payment_method, array $payment_details) {
+    $payment_type = $payment_method->getType()->getPluginId();
     $required_keys = [
-      'payment_method_nonce', 'card_type', 'last2',
+      'payment_method_nonce',
     ];
+
+    if ($payment_type != 'paypal') {
+      $required_keys += [
+        'card_type', 'last2',
+      ];
+    }
+
     foreach ($required_keys as $required_key) {
       if (empty($payment_details[$required_key])) {
         throw new \InvalidArgumentException(sprintf('$payment_details must contain the %s key.', $required_key));
@@ -286,13 +295,20 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
     }
     else {
       $remote_payment_method = $this->doCreatePaymentMethod($payment_method, $payment_details);
-      $payment_method->card_type = $this->mapCreditCardType($remote_payment_method['card_type']);
-      $payment_method->card_number = $remote_payment_method['last4'];
-      $payment_method->card_exp_month = $remote_payment_method['expiration_month'];
-      $payment_method->card_exp_year = $remote_payment_method['expiration_year'];
-
       $remote_id = $remote_payment_method['token'];
-      $expires = CreditCard::calculateExpirationTimestamp($remote_payment_method['expiration_month'], $remote_payment_method['expiration_year']);
+
+      if ($payment_type == 'paypal') {
+        $payment_method->paypal_mail = $remote_payment_method['email'];
+        $expires = 0;
+      }
+      else {
+        $payment_method->card_type = $this->mapCreditCardType($remote_payment_method['card_type']);
+        $payment_method->card_number = $remote_payment_method['last4'];
+        $payment_method->card_exp_month = $remote_payment_method['expiration_month'];
+        $payment_method->card_exp_year = $remote_payment_method['expiration_year'];
+
+        $expires = CreditCard::calculateExpirationTimestamp($remote_payment_method['expiration_month'], $remote_payment_method['expiration_year']);
+      }
     }
 
     $payment_method->setRemoteId($remote_id);
@@ -316,8 +332,12 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
    *   - last4: The last 4 digits of the credit card number.
    *   - expiration_month: The expiration month.
    *   - expiration_year: The expiration year.
+   *   PayPal specific keys:
+   *   - email: The PayPal email address.
    */
   protected function doCreatePaymentMethod(PaymentMethodInterface $payment_method, array $payment_details) {
+    $payment_type = $payment_method->getType()->getPluginId();
+
     $owner = $payment_method->getOwner();
     /** @var \Drupal\address\AddressInterface $address */
     $address = $payment_method->getBillingProfile()->address->first();
@@ -385,13 +405,21 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
       }
     }
 
-    return [
-      'token' => $remote_payment_method->token,
-      'card_type' => $remote_payment_method->cardType,
-      'last4' => $remote_payment_method->last4,
-      'expiration_month' => $remote_payment_method->expirationMonth,
-      'expiration_year' => $remote_payment_method->expirationYear,
-    ];
+    if ($payment_type == 'paypal') {
+      return [
+        'token' => $remote_payment_method->token,
+        'email' => $remote_payment_method->email,
+      ];
+    }
+    else {
+      return [
+        'token' => $remote_payment_method->token,
+        'card_type' => $remote_payment_method->cardType,
+        'last4' => $remote_payment_method->last4,
+        'expiration_month' => $remote_payment_method->expirationMonth,
+        'expiration_year' => $remote_payment_method->expirationYear,
+      ];
+    }
   }
 
   /**

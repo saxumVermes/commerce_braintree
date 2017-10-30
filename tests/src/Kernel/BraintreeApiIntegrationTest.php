@@ -125,7 +125,7 @@ class BraintreeApiIntegrationTest extends CommerceKernelTestBase {
     $this->setExpectedException(InvalidRequestException::class, 'Cannot use a paymentMethodNonce more than once.');
     /** @var \Drupal\commerce_braintree\Plugin\Commerce\PaymentGateway\HostedFieldsInterface $gateway_plugin */
     $gateway_plugin = $this->gateway->getPlugin();
-    $gateway_plugin->createPayment($this->generateTestPayment('10.00', \Braintree_Test_Nonces::$consumed));
+    $gateway_plugin->createPayment($this->generateTestPayment('10.00', \Braintree\Test\Nonces::$consumed));
   }
 
   /**
@@ -143,7 +143,7 @@ class BraintreeApiIntegrationTest extends CommerceKernelTestBase {
    */
   protected function generateTestPayment($amount, $nonce = NULL) {
     if ($nonce === NULL) {
-      $nonce = \Braintree_Test_Nonces::$transactable;
+      $nonce = \Braintree\Test\Nonces::$transactable;
     }
 
     $user = $this->createUser();

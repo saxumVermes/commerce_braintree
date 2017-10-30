@@ -10,13 +10,49 @@ class PaymentMethodAddForm extends BasePaymentMethodAddForm {
   /**
    * {@inheritdoc}
    */
+  public function buildPayPalForm(array $element, FormStateInterface $form_state) {
+    /** @var \Drupal\commerce_braintree\Plugin\Commerce\PaymentGateway\HostedFieldsInterface $plugin */
+    $plugin = $this->plugin;
+
+    $element['#attached']['library'][] = 'commerce_braintree/paypal';
+    $element['#attached']['drupalSettings']['commerceBraintree'] = [
+      'clientToken' => $plugin->generateClientToken(),
+      'integration' => 'paypal',
+      'paypalButton' => 'paypal-button',
+      'environment' => ($plugin->getMode() == 'test') ? 'sandbox' : 'production',
+    ];
+    $element['#attributes']['class'][] = 'braintree-form';
+
+    $element['paypal_button'] = [
+      '#type' => 'container',
+      '#id' => 'paypal-button',
+    ];
+
+    // Populated by the JS library.
+    $element['payment_method_nonce'] = [
+      '#type' => 'hidden',
+      '#attributes' => [
+        'class' => ['braintree-nonce'],
+      ],
+    ];
+
+    // Put the PayPal button below the billing address.
+    $element['#weight'] = 50;
+
+    return $element;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function buildCreditCardForm(array $element, FormStateInterface $form_state) {
     /** @var \Drupal\commerce_braintree\Plugin\Commerce\PaymentGateway\HostedFieldsInterface $plugin */
     $plugin = $this->plugin;
 
-    $element['#attached']['library'][] = 'commerce_braintree/form';
+    $element['#attached']['library'][] = 'commerce_braintree/hosted-fields';
     $element['#attached']['drupalSettings']['commerceBraintree'] = [
       'clientToken' => $plugin->generateClientToken(),
+      'integration' => 'custom',
       'hostedFields' => [
         'number' => ['selector' => '#card-number'],
         'cvv' => ['selector' => '#cvv'],
@@ -84,8 +120,22 @@ class PaymentMethodAddForm extends BasePaymentMethodAddForm {
   /**
    * {@inheritdoc}
    */
+  protected function validatePayPalForm(array &$element, FormStateInterface $form_state) {
+    // The JS library performs its own validation.
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   protected function validateCreditCardForm(array &$element, FormStateInterface $form_state) {
     // The JS library performs its own validation.
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function submitPayPalForm(array $element, FormStateInterface $form_state) {
+    // The payment gateway plugin will process the submitted payment details.
   }
 
   /**

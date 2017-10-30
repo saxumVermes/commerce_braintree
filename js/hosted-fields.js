@@ -1,62 +1,13 @@
 /**
  * @file
- * Defines behaviors for the Braintree payment method form.
+ * Defines behaviors for the Braintree hosted fields payment method form.
  */
 
 (function ($, Drupal, drupalSettings, braintree) {
 
   'use strict';
 
-  /**
-   * Attaches the commerceBraintreeForm behavior.
-   *
-   * @type {Drupal~behavior}
-   *
-   * @prop {Drupal~behaviorAttach} attach
-   *   Attaches the commerceBraintreeForm behavior.
-   *
-   * @see Drupal.commerceBraintree
-   */
-  Drupal.behaviors.commerceBraintreeForm = {
-    attach: function (context) {
-      var $form = $('.braintree-form', context).closest('form').once('braintree-attach');
-      if ($form.length === 0) {
-        return;
-      }
-
-      var waitForSdk = setInterval(function () {
-        if (typeof braintree !== 'undefined') {
-          var commerceBraintree = new Drupal.commerceBraintree($form, drupalSettings.commerceBraintree);
-          $form.data('braintree', commerceBraintree);
-          clearInterval(waitForSdk);
-        }
-      }, 100);
-    },
-    detach: function (context, settings, trigger) {
-      // Detaching on the wrong trigger will clear the Braintree form
-      // on #ajax (after changing the address country, for example).
-      if (trigger !== 'unload') {
-        return;
-      }
-      var $form = $('.braintree-form', context).closest('form');
-      if ($form.length === 0) {
-        return;
-      }
-
-      var commerceBraintree = $form.data('braintree');
-      commerceBraintree.integration.teardown();
-      $form.removeData('braintree');
-      $form.removeOnce('braintree-attach');
-      $form.off('submit.braintreeSubmit');
-    }
-  };
-
-  /**
-   * Wraps the Braintree object with Commerce-specific logic.
-   *
-   * @constructor
-   */
-  Drupal.commerceBraintree = function ($form, settings) {
+  Drupal.commerceBraintreeHostedFields = function ($form, settings) {
     var $submit = $form.find('input.button--primary');
     var that = this;
 
@@ -111,8 +62,7 @@
     return this;
   };
 
-
-  Drupal.commerceBraintree.prototype.errorMsg = function(tokenizeError) {
+  Drupal.commerceBraintreeHostedFields.prototype.errorMsg = function (tokenizeError) {
     var message;
 
     switch (tokenizeError.code) {
@@ -162,14 +112,5 @@
 
     return message;
   };
-
-  $.extend(Drupal.theme, /** @lends Drupal.theme */{
-    commerceBraintreeError: function (message) {
-      return $('<div role="alert">' +
-        '<div class="messages messages--error">' + message + '</div>' +
-        '</div>'
-      );
-    }
-  });
 
 })(jQuery, Drupal, drupalSettings, window.braintree);

@@ -125,6 +125,9 @@ class ErrorHelper {
         throw new HardDeclineException($text, $code);
       }
     }
+
+    // Throw a fallback exception for everything else.
+    throw new InvalidRequestException($result);
   }
 
 }
