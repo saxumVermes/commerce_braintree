@@ -29,13 +29,17 @@
           return;
         }
 
-        paypal.Button.render({
+        var renderOptions = {
           env: settings.environment,
 
           payment: function () {
-            return paypalCheckoutInstance.createPayment({
+            var options = {
               flow: 'vault'
-            });
+            };
+            if (drupalSettings['commerceBraintree']['paymentMethodType'] == "paypal_credit") {
+              options.offerCredit = true;
+            }
+            return paypalCheckoutInstance.createPayment(options);
           },
 
           onAuthorize: function (data, actions) {
@@ -66,7 +70,14 @@
             $form.prepend(Drupal.theme('commerceBraintreeError', error));
             return;
           }
-        }, '#paypal-button');
+        };
+
+        if (drupalSettings['commerceBraintree']['paymentMethodType'] == 'paypal_credit') {
+          renderOptions.style = {
+            label: 'credit'
+          };
+        }
+        paypal.Button.render(renderOptions, '#paypal-button');
       });
     });
 

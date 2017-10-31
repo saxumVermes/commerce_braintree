@@ -10,6 +10,18 @@ class PaymentMethodAddForm extends BasePaymentMethodAddForm {
   /**
    * {@inheritdoc}
    */
+  public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
+    $form = parent::buildConfigurationForm($form, $form_state);
+    $payment_method = $this->entity;
+    if ($payment_method->bundle() === 'paypal_credit') {
+      $form['payment_details'] = $this->buildPayPalForm($form['payment_details'], $form_state);
+    }
+    return $form;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function buildPayPalForm(array $element, FormStateInterface $form_state) {
     /** @var \Drupal\commerce_braintree\Plugin\Commerce\PaymentGateway\HostedFieldsInterface $plugin */
     $plugin = $this->plugin;
@@ -20,6 +32,7 @@ class PaymentMethodAddForm extends BasePaymentMethodAddForm {
       'integration' => 'paypal',
       'paypalButton' => 'paypal-button',
       'environment' => ($plugin->getMode() == 'test') ? 'sandbox' : 'production',
+      'paymentMethodType' => $this->entity->bundle(),
     ];
     $element['#attributes']['class'][] = 'braintree-form';
 

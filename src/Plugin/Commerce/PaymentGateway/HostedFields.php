@@ -27,7 +27,7 @@ use Drupal\Core\Form\FormStateInterface;
  *     "add-payment-method" = "Drupal\commerce_braintree\PluginForm\HostedFields\PaymentMethodAddForm",
  *   },
  *   js_library = "commerce_braintree/braintree",
- *   payment_method_types = {"credit_card", "paypal"},
+ *   payment_method_types = {"credit_card", "paypal", "paypal_credit"},
  *   credit_card_types = {
  *     "amex", "dinersclub", "discover", "jcb", "maestro", "mastercard", "visa",
  *   },
@@ -267,12 +267,16 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
    * {@inheritdoc}
    */
   public function createPaymentMethod(PaymentMethodInterface $payment_method, array $payment_details) {
-    $payment_type = $payment_method->getType()->getPluginId();
+    $payment_method_type = $payment_method->getType()->getPluginId();
     $required_keys = [
       'payment_method_nonce',
     ];
 
-    if ($payment_type != 'paypal') {
+    $paypal_payment_method_types = [
+      'paypal',
+      'paypal_credit',
+    ];
+    if (!in_array($payment_method_type, $paypal_payment_method_types)) {
       $required_keys += [
         'card_type', 'last2',
       ];
@@ -297,7 +301,7 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
       $remote_payment_method = $this->doCreatePaymentMethod($payment_method, $payment_details);
       $remote_id = $remote_payment_method['token'];
 
-      if ($payment_type == 'paypal') {
+      if (in_array($payment_method_type, $paypal_payment_method_types)) {
         $payment_method->paypal_mail = $remote_payment_method['email'];
         $expires = 0;
       }
@@ -336,7 +340,7 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
    *   - email: The PayPal email address.
    */
   protected function doCreatePaymentMethod(PaymentMethodInterface $payment_method, array $payment_details) {
-    $payment_type = $payment_method->getType()->getPluginId();
+    $payment_method_type = $payment_method->getType()->getPluginId();
 
     $owner = $payment_method->getOwner();
     /** @var \Drupal\address\AddressInterface $address */
@@ -405,7 +409,7 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
       }
     }
 
-    if ($payment_type == 'paypal') {
+    if (in_array($payment_method_type, ['paypal', 'paypal_credit'])) {
       return [
         'token' => $remote_payment_method->token,
         'email' => $remote_payment_method->email,
