@@ -8,7 +8,7 @@
   'use strict';
 
   Drupal.commerceBraintreePaypal = function ($form, settings) {
-    var $submit = $form.find('input.button--primary');
+    var $submit = $form.find('.button--primary');
     var that = this;
     braintree.client.create({
       authorization: settings.clientToken
