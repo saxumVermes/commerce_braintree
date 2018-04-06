@@ -77,7 +77,13 @@
             label: 'credit'
           };
         }
-        paypal.Button.render(renderOptions, '#paypal-button');
+
+        var waitForSdk = setInterval(function () {
+          if (typeof paypal !== 'undefined') {
+            clearInterval(waitForSdk);
+            paypal.Button.render(renderOptions, '#paypal-button');
+          }
+        }, 100);
       });
     });
 
