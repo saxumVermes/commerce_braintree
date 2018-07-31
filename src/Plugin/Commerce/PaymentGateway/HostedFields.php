@@ -3,6 +3,8 @@
 namespace Drupal\commerce_braintree\Plugin\Commerce\PaymentGateway;
 
 use Drupal\commerce_braintree\ErrorHelper;
+use Drupal\commerce_braintree\Event\BraintreeEvents;
+use Drupal\commerce_braintree\Event\TransactionSaleRequestEvent;
 use Drupal\commerce_payment\CreditCard;
 use Drupal\commerce_payment\Entity\PaymentInterface;
 use Drupal\commerce_payment\Entity\PaymentMethodInterface;
@@ -15,6 +17,8 @@ use Drupal\commerce_price\Price;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Provides the HostedFields payment gateway.
@@ -43,9 +47,33 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
   protected $api;
 
   /**
-   * {@inheritdoc}
+   * The event dispatcher.
+   *
+   * @var \Symfony\Component\EventDispatcher\EventDispatcherInterface
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityTypeManagerInterface $entity_type_manager, PaymentTypeManager $payment_type_manager, PaymentMethodTypeManager $payment_method_type_manager, TimeInterface $time) {
+  protected $eventDispatcher;
+
+  /**
+   * HostedFields constructor.
+   *
+   * @param array $configuration
+   *   A configuration array containing information about the plugin instance.
+   * @param string $plugin_id
+   *   The plugin_id for the plugin instance.
+   * @param mixed $plugin_definition
+   *   The plugin implementation definition.
+   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
+   *   The entity type manager.
+   * @param \Drupal\commerce_payment\PaymentTypeManager $payment_type_manager
+   *   The payment type manager.
+   * @param \Drupal\commerce_payment\PaymentMethodTypeManager $payment_method_type_manager
+   *   The payment method type manager.
+   * @param \Drupal\Component\Datetime\TimeInterface $time
+   *   The time.
+   * @param \Symfony\Component\EventDispatcher\EventDispatcherInterface $event_dispatcher
+   *   The event dispatcher.
+   */
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityTypeManagerInterface $entity_type_manager, PaymentTypeManager $payment_type_manager, PaymentMethodTypeManager $payment_method_type_manager, TimeInterface $time, EventDispatcherInterface $event_dispatcher) {
     parent::__construct($configuration, $plugin_id, $plugin_definition, $entity_type_manager, $payment_type_manager, $payment_method_type_manager, $time);
 
     $this->api = new \Braintree\Gateway([
@@ -54,6 +82,23 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
       'publicKey' => $this->configuration['public_key'],
       'privateKey' => $this->configuration['private_key'],
     ]);
+    $this->eventDispatcher = $event_dispatcher;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
+    return new static(
+      $configuration,
+      $plugin_id,
+      $plugin_definition,
+      $container->get('entity_type.manager'),
+      $container->get('plugin.manager.commerce_payment_type'),
+      $container->get('plugin.manager.commerce_payment_method_type'),
+      $container->get('datetime.time'),
+      $container->get('event_dispatcher')
+    );
   }
 
   /**
@@ -162,7 +207,7 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
       'merchantAccountId' => $this->configuration['merchant_account_id'][$currency_code],
       // orderId must be unique.
       'orderId' => $payment->getOrderId() . '-' . $this->time->getCurrentTime(),
-      'amount' => $amount->getNumber(),
+      'amount' => round($amount->getNumber(), 2),
       'options' => [
         'submitForSettlement' => $capture,
       ],
@@ -175,6 +220,9 @@ class HostedFields extends OnsitePaymentGatewayBase implements HostedFieldsInter
     }
 
     try {
+      $event = new TransactionSaleRequestEvent($transaction_data, $payment);
+      $this->eventDispatcher->dispatch(BraintreeEvents::TRANSACTION_SALE_REQUEST, $event);
+      $transaction_data = $event->getTransactionData();
       $result = $this->api->transaction()->sale($transaction_data);
       ErrorHelper::handleErrors($result);
     }

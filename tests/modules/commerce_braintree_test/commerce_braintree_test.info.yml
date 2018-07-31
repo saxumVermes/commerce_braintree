@@ -1,0 +1,6 @@
+name: Commerce Braintree Test
+type: module
+description: 'Test module that provides a sample Event subscriber to alter Braintree request.'
+core: 8.x
+dependencies:
+  - commerce: commerce_braintree
