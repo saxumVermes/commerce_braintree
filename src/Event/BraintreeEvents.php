@@ -3,12 +3,12 @@
 namespace Drupal\commerce_braintree\Event;
 
 /**
- * Defines events for Braintree transactions.
+ * Defines events for Braintree module.
  */
 final class BraintreeEvents {
 
   /**
-   * Name of the event fired when performing sale request.
+   * Name of the event fired when performing transaction sale request.
    *
    * @Event
    */

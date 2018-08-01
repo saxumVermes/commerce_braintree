@@ -5,14 +5,23 @@ namespace Drupal\commerce_braintree\Event;
 use Drupal\commerce_payment\Entity\PaymentInterface;
 use Symfony\Component\EventDispatcher\Event;
 
+/**
+ * Defines transaction sale request event.
+ *
+ * @see \Drupal\commerce_braintree\Event\BraintreeEvents
+ */
 class TransactionSaleRequestEvent extends Event {
 
   /**
+   * Transaction sale request data.
+   *
    * @var array
    */
   protected $transactionData;
 
   /**
+   * Payment object.
+   *
    * @var \Drupal\commerce_payment\Entity\PaymentInterface
    */
   protected $payment;
@@ -31,7 +40,7 @@ class TransactionSaleRequestEvent extends Event {
   }
 
   /**
-   * Altering transaction data.
+   * Alters transaction data.
    *
    * @param array $transactionData
    *
