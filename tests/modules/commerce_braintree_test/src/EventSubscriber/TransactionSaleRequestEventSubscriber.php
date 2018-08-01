@@ -20,17 +20,24 @@ class TransactionSaleRequestEventSubscriber implements EventSubscriberInterface 
   public function alterTransactionData(TransactionSaleRequestEvent $event) {
     $transactionData = $event->getTransactionData();
 
-    /** @var \Drupal\address\AddressInterface $billingAddress */
-    $billingAddress = $event->getPayment()->getOrder()->getBillingProfile()->address;
+    $order = $event->getPayment()->getOrder();
+    /** @var \Drupal\profile\Entity\ProfileInterface $billingProfile */
+    $billingProfile = $order->getBillingProfile();
 
-    $transactionData += [
-      'billing' => [
-        'firstName' => $billingAddress->getGivenName(),
-        'secondName' => $billingAddress->getFamilyName(),
-      ],
-    ];
+    if ($billingProfile->hasField('address')) {
+      /** @var \Drupal\address\AddressInterface $billingAddress */
+      $billingAddress = $billingProfile->get('address')->first();
 
-    $event->setTransactionData($transactionData);
+      $transactionData += [
+        'shipping' => [
+          'firstName' => $billingAddress->getGivenName(),
+          'lastName' => $billingAddress->getFamilyName(),
+          'streetAddress' => $billingAddress->getAddressLine1(),
+          'postalCode' => $billingAddress->getPostalCode(),
+        ],
+      ];
+      $event->setTransactionData($transactionData);
+    }
   }
 
 }
