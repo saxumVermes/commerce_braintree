@@ -1,5 +1,5 @@
 services:
   commerce_braintree_test.transaction_sale_request_subscriber:
-    class: Drupal\commerce_braintree_test\EventSubscriber\TransactionSaleEventSubscriber
+    class: Drupal\commerce_braintree_test\EventSubscriber\TransactionSaleRequestEventSubscriber
     tags:
       - { name: event_subscriber }
